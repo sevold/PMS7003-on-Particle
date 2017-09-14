@@ -20,6 +20,7 @@ int PM10Value=0;         //define PM10 value of the air detector module
  
 void setup()
 {
+  static unsigned long OledTimer=millis(); 
   Serial.begin(57600);
   Serial1.begin(9600);   //use serial0
   //Serial1.setTimeout(1500);    //set the Timeout to 1500ms, longer than the data transmission periodic time of the sensor
@@ -57,8 +58,7 @@ void SerialEvent1()
 
 void loop()
 {
- 
-  static unsigned long OledTimer=millis();  
+  
     if (millis() - OledTimer >=1000) 
     {
       OledTimer=millis(); 
