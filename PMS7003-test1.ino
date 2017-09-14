@@ -17,6 +17,14 @@ int PM01Value=0;          //define PM1.0 value of the air detector module
 int PM2_5Value=0;         //define PM2.5 value of the air detector module
 int PM10Value=0;         //define PM10 value of the air detector module
 
+ 
+void setup()
+{
+  Serial.begin(57600);
+  Serial1.begin(9600);   //use serial0
+  //Serial1.setTimeout(1500);    //set the Timeout to 1500ms, longer than the data transmission periodic time of the sensor
+ 
+}
 
 void SerialEvent1()
 {
@@ -46,15 +54,7 @@ void SerialEvent1()
         bufIndex = -1;  // mark as treated and ready for next message
     }
 }
- 
-void setup()
-{
-  Serial.begin(57600);
-  Serial1.begin(9600);   //use serial0
-  //Serial1.setTimeout(1500);    //set the Timeout to 1500ms, longer than the data transmission periodic time of the sensor
- 
-}
- 
+
 void loop()
 {
  
