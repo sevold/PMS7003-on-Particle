@@ -6,16 +6,46 @@
  //*Modified by Cain for Arduino Hardware Serial port compatibility
  //*Date：March.25.2016
  //*References :
- //*    Thread : ilak2k - https://community.particle.io/t/dust-sensor-pms-5003-6003-7003/24221/
+ //*    Thread : https://community.particle.io/t/dust-sensor-pms-5003-6003-7003/24221/
  //******************************
 #include "Particle.h"
-#define LENG 31   //0x42 + 31 bytes equal to 32 bytes
-char buf[LENG];
- 
+
+char buf[31];
+int  bufIndex = -1;  // current index in message buffer (-1 indicates not started)
+
 int PM01Value=0;          //define PM1.0 value of the air detector module
 int PM2_5Value=0;         //define PM2.5 value of the air detector module
 int PM10Value=0;         //define PM10 value of the air detector module
- 
+
+
+void SerialEvent1()
+{
+    int b = 0;
+    
+    // when not already started a message, flush everything up to first 'B'
+    while (bufIndex < 0 && (b = Serial1.read()) >= 0 && b != 'B') Particle.process();  
+
+    // if we got a start byte start a new message
+    if ('B' == b) bufIndex = 0;  // had en error here, hence the following discussion (if (`B` = b) caused the problem)  
+
+    // fill all available bytes into open message buffer
+    while (0 <= bufIndex && bufIndex < sizeof(buf) && Serial1.available())
+    {
+        buf[bufIndex++] = Serial1.read();
+        Particle.process();
+    }
+    
+    if (bufIndex == sizeof(buf))
+    {
+        if(buf[0] == 0x4d && checkValue(buf,LENG)) 
+        {
+            PM01Value=transmitPM01(buf); //count PM1.0 value of the air detector module
+            PM2_5Value=transmitPM2_5(buf);//count PM2.5 value of the air detector module
+            PM10Value=transmitPM10(buf); //count PM10 value of the air detector module 
+        }
+        bufIndex = -1;  // mark as treated and ready for next message
+    }
+}
  
 void setup()
 {
@@ -27,24 +57,12 @@ void setup()
  
 void loop()
 {
-  if(Serial1.find("B")){    //start to read when detect 0x42
-    Serial1.readBytes(buf,LENG);
- 
-    if(buf[0] == 0x4d){
-      if(checkValue(buf,LENG)){
-        PM01Value=transmitPM01(buf); //count PM1.0 value of the air detector module
-        PM2_5Value=transmitPM2_5(buf);//count PM2.5 value of the air detector module
-        PM10Value=transmitPM10(buf); //count PM10 value of the air detector module 
-      }           
-    } 
-  }
  
   static unsigned long OledTimer=millis();  
     if (millis() - OledTimer >=1000) 
     {
       OledTimer=millis(); 
-      
-    //ScruffR  
+
     Serial.printlnf("PM  1.0: %5d µg/m³\r\n"
                   "PM  2.5: %5d µg/m³\r\n"
                   "PM 10.0: %5d µg/m³\r\n"
@@ -52,21 +70,11 @@ void loop()
                   ,PM2_5Value
                   ,PM10Value);
        
-      //Serial.print("PM1.0: ");  
-      //Serial.print(PM01Value);
-      //Serial.println("  ug/m3");            
-     
-      //Serial.print("PM2.5: ");  
-      //Serial.print(PM2_5Value);
-      //Serial.println("  ug/m3");     
-       
-      //Serial.print("PM1 0: ");  
-      //Serial.print(PM10Value);
-      //Serial.println("  ug/m3");   
-      //Serial.println();
     }
    
 }
+
+
 char checkValue(char *thebuf, char leng)
 {  
   char receiveflag=0;
