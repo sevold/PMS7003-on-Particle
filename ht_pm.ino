@@ -1,12 +1,26 @@
 //Abstract: Dweeting data from sensors for humidity, temperature, and particulate matter
 //Sensors: DHT22, PMS7003
-//
+//Sources: code from ladyada and ilak2k
 
 
 #include <HttpClient.h>
 #include <Particle.h>
 #define LENG 31   //0x42 + 31 bytes equal to 32 bytes
 char buf[LENG];
+
+#define DHTPIN 2     // what pin we're connected to
+
+// Uncomment whatever type you're using!
+//#define DHTTYPE DHT11		// DHT 11 
+#define DHTTYPE DHT22		// DHT 22 (AM2302)
+//#define DHTTYPE DHT21		// DHT 21 (AM2301)
+
+// Connect pin 1 (on the left) of the sensor to +5V
+// Connect pin 2 of the sensor to whatever your DHTPIN is
+// Connect pin 4 (on the right) of the sensor to GROUND
+// Connect a 10K resistor from pin 2 (data) to pin 1 (power) of the sensor
+
+DHT dht(DHTPIN, DHTTYPE);
  
 int PM01Value=0;          //define PM1.0 value of the air detector module
 int PM2_5Value=0;         //define PM2.5 value of the air detector module
@@ -18,10 +32,8 @@ HttpClient http;
 
 // Headers currently need to be set at init, useful for API keys etc.
 http_header_t headers[] = {
-    //  { "Content-Type", "application/json" },
-    //  { "Accept" , "application/json" },
     { "Accept" , "*/*"},
-    { NULL, NULL } // NOTE: Always terminate headers will NULL
+    { NULL, NULL } // NOTE: Always terminate headers with NULL
 };
 
 http_request_t request;
@@ -30,15 +42,13 @@ http_response_t response;
  
 void setup()
 {
-  //Serial.begin(9600);
-  Serial1.begin(9600);   //use serial1
-  //Serial1.setTimeout(1500);    //set the Timeout to 1500ms, longer than the data transmission periodic time of the sensor
- 
+  Serial1.begin(9600);   //use serial1 for PMS7003
+  dht.begin();    //initiate DHT sensor
 }
  
 void loop()
 {
-    //odelay(1000)
+    //delay(1000)
   if(Serial1.find("B")) {    //start to read when detect 0x42
     Serial1.readBytes(buf,LENG);
  
@@ -54,28 +64,49 @@ void loop()
   static unsigned long OledTimer=millis();  
     if (millis() - OledTimer >=1000) 
     {
-      OledTimer=millis();
-      
-      String pm01 = String(PM01Value);
-      String pm2_5 = String(PM2_5Value);
-      String pm10 = String(PM10Value);
-      
-      	
+	OledTimer=millis();
+
+	String pm01 = String(PM01Value);
+	String pm2_5 = String(PM2_5Value);
+	String pm10 = String(PM10Value);
+	
+	// Reading temperature or humidity takes about 250 milliseconds!
+	// Sensor readings may also be up to 2 seconds 'old' (its a 
+	// very slow sensor)
+	float h = dht.getHumidity();
+	// Read temperature as Celsius
+	float t = dht.getTempCelcius();
+	// Read temperature as Farenheit
+	float f = dht.getTempFarenheit();
+  
+	// Check if any reads failed and exit early (to try again).
+	if (isnan(h) || isnan(t) || isnan(f)) {
+		Particle.publish("DEBUG","Failed to read from DHT sensor!");
+		return;
+	}
+
+	// Compute heat index
+	// Must send in temp in Fahrenheit!
+	float hi = dht.getHeatIndex();
+	float dp = dht.getDewPoint();
+	float k = dht.getTempKelvin();
+	
+	//cast floats to string
+	String st(t, 2);
+	String sh(h, 2);
+
 	//post to dweet
 	request.hostname = "dweet.io";
-    request.port = 80;
-    request.path = "/dweet/for/brenchieslabdata?pm1=" + pm01 + "&pm2_5=" + pm2_5 + "&pm10=" + pm10;
-    
-    	
-	Particle.publish("DEBUG",request.body);
-	
-    // Get request
-    http.get(request, response, headers);
-    //Spark.publish("DEBUG","Application Response status: ");
-    //Particle.publish("DEBUG",response.status);
+	request.port = 80;
+	request.path = "/dweet/for/brenchieslabdata?pm1=" + pm01 + "&pm2_5=" + pm2_5 + "&pm10=" + pm10 + "&temp=" + st + "&humidity=" + sh;
 
-    //Spark.publish("DEBUG","Application HTTP Response Body: ");
-    Particle.publish("DEBUG",response.body);
+	Particle.publish("DEBUG",request.body);
+	    
+	// Get request
+	http.get(request, response, headers);
+
+	//Particle.publish("DEBUG",response.status);
+	Particle.publish("DEBUG",response.body);
     }
    
 }
