@@ -1,9 +1,14 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <HttpClient.h>
+
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_DHT.h>
+
 //Abstract: Dweeting data from sensors for humidity, temperature, and particulate matter
 //Sensors: DHT22, PMS7003
 //Sources: code from ladyada and ilak2k
 
 
-#include <HttpClient.h>
 #include <Particle.h>
 #define LENG 31   //0x42 + 31 bytes equal to 32 bytes
 char buf[LENG];
